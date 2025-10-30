@@ -50,15 +50,15 @@ interface ChartDataPoint {
 const approvalChartConfig = {
   approved: {
     label: "Aprovados",
-    color: "var(--chart-1)",
+    color: "var(--score-high)",
   },
   rejected: {
     label: "Rejeitados",
-    color: "var(--chart-3)",
+    color: "var(--score-low)",
   },
   pending: {
     label: "Pendentes",
-    color: "var(--chart-4)",
+    color: "var(--score-medium)",
   },
 } satisfies ChartConfig
 
@@ -181,14 +181,6 @@ export function ApprovalTrendChart({ data }: ApprovalTrendChartProps) {
               </linearGradient>
             </defs>
             <Area
-              dataKey="approved"
-              type="natural"
-              fill="url(#fillApproved)"
-              fillOpacity={0.4}
-              stroke="var(--color-approved)"
-              stackId="a"
-            />
-            <Area
               dataKey="rejected"
               type="natural"
               fill="url(#fillRejected)"
@@ -202,6 +194,14 @@ export function ApprovalTrendChart({ data }: ApprovalTrendChartProps) {
               fill="url(#fillPending)"
               fillOpacity={0.4}
               stroke="var(--color-pending)"
+              stackId="a"
+            />
+            <Area
+              dataKey="approved"
+              type="natural"
+              fill="url(#fillApproved)"
+              fillOpacity={0.4}
+              stroke="var(--color-approved)"
               stackId="a"
             />
           </AreaChart>

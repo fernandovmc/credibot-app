@@ -100,11 +100,23 @@ export default function ClientesPage() {
 
   const getScoreColor = (score: number) => {
     if (score < 350) {
-      return { bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800", text: "text-red-600 dark:text-red-400", bar: "#ef4444" };
+      return {
+        text: "text-[--score-low]",
+        bar: "var(--score-low)",
+        cssVar: "--score-low"
+      };
     } else if (score < 650) {
-      return { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800", text: "text-amber-600 dark:text-amber-400", bar: "#f59e0b" };
+      return {
+        text: "text-[--score-medium]",
+        bar: "var(--score-medium)",
+        cssVar: "--score-medium"
+      };
     } else {
-      return { bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800", text: "text-green-600 dark:text-green-400", bar: "#10b981" };
+      return {
+        text: "text-[--score-high]",
+        bar: "var(--score-high)",
+        cssVar: "--score-high"
+      };
     }
   };
 
@@ -197,9 +209,9 @@ export default function ClientesPage() {
               width: 24px;
               height: 24px;
               border-radius: 50%;
-              background: var(--primary, #3b82f6);
+              background: var(--primary);
               cursor: pointer;
-              border: 3px solid hsl(var(--background-foreground, 0 0% 100%));
+              border: 3px solid hsl(var(--background));
               box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
               pointer-events: auto;
               z-index: 5;
@@ -208,9 +220,9 @@ export default function ClientesPage() {
               width: 24px;
               height: 24px;
               border-radius: 50%;
-              background: var(--primary, #3b82f6);
+              background: var(--primary);
               cursor: pointer;
-              border: 3px solid hsl(var(--background-foreground, 0 0% 100%));
+              border: 3px solid hsl(var(--background));
               box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
               pointer-events: auto;
               z-index: 5;
@@ -232,11 +244,11 @@ export default function ClientesPage() {
             .range-fill {
               position: absolute;
               height: 100%;
-              background: var(--primary, #3b82f6);
+              background: var(--primary);
               border-radius: 5px;
               top: 0;
               pointer-events: none;
-              box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
+              box-shadow: 0 1px 4px rgba(var(--primary), 0.3);
             }
           `}</style>
 
@@ -442,7 +454,9 @@ export default function ClientesPage() {
 
                         {/* Score */}
                         <div className="flex items-baseline gap-2">
-                          <span className={`text-3xl font-bold ${scoreColor.text}`}>{cliente.score_credito}</span>
+                          <span className={`text-3xl font-bold ${scoreColor.text}`} style={{ color: scoreColor.bar }}>
+                            {cliente.score_credito}
+                          </span>
                           <span className="text-xs text-muted-foreground">/ 1000</span>
                         </div>
 

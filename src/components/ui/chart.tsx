@@ -39,13 +39,7 @@ const ChartContainer = React.forwardRef<
   const chartId = `chart-${id || uniqueId.replace(/:/g, "")}`
 
   const cssVars = React.useMemo(() => {
-    const vars: Record<string, string> = {
-      "--chart-1": "oklch(0.7227 0.1920 149.5793)",
-      "--chart-2": "oklch(0.6959 0.1491 162.4796)",
-      "--chart-3": "oklch(0.5960 0.1274 163.2254)",
-      "--chart-4": "oklch(0.5081 0.1049 165.6121)",
-      "--chart-5": "oklch(0.4318 0.0865 166.9128)",
-    }
+    const vars: Record<string, string> = {}
 
     Object.entries(config).forEach(([key, value]) => {
       if (value.color) {
@@ -124,6 +118,15 @@ const ChartTooltipContent = React.forwardRef<
       return "value"
     }, [label, hideLabel, labelFormatter, payload])
 
+    const sortedPayload = React.useMemo(() => {
+      if (!payload?.length) return []
+      return [...payload].sort((a, b) => {
+        const valueA = typeof a.value === "number" ? a.value : 0
+        const valueB = typeof b.value === "number" ? b.value : 0
+        return valueB - valueA
+      })
+    }, [payload])
+
     if (!active || !payload?.length) {
       return null
     }
@@ -138,7 +141,7 @@ const ChartTooltipContent = React.forwardRef<
           <div className="text-muted-foreground text-xs">{tooltipLabel}</div>
         ) : null}
         <div className="flex flex-col gap-1.5">
-          {payload.map((item: any, index: number) => {
+          {sortedPayload.map((item: any, index: number) => {
             const key = `${item.dataKey}`
             const itemConfig = config[key as keyof typeof config]
             const value = `${item.value}`
