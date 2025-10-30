@@ -7,8 +7,11 @@ import { ThemeProvider } from "@/components/theme-provider";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Credibot - Sistema de Análise de Crédito",
+  title: "Credibot",
   description: "Plataforma inteligente para análise de crédito e gestão de clientes",
+  icons: {
+    icon: "/icons/graph.png",
+  },
 };
 
 export default function RootLayout({

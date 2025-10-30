@@ -196,7 +196,7 @@ export default function ChatPage() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground px-4">
-              Exemplos: "Quais clientes têm score acima de 800?" • "Mostre clientes inadimplentes" • "Top 5 clientes por score"
+              Exemplos: &quot;Quais clientes têm score acima de 800?&quot; • &quot;Mostre clientes inadimplentes&quot; • &quot;Top 5 clientes por score&quot;
             </p>
           </form>
         </div>
