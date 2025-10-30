@@ -26,10 +26,10 @@ export default function RootLayout({
           disableTransitionOnChange
         >
           <div className="flex h-screen">
-            <aside className="hidden md:flex md:w-60 md:flex-col md:fixed md:inset-y-0">
+            <aside className="hidden md:flex md:w-20 md:flex-col md:fixed md:inset-y-0">
               <Sidebar />
             </aside>
-            <main className="flex-1 md:pl-60 overflow-auto">
+            <main className="flex-1 md:pl-20 overflow-auto">
               {children}
             </main>
           </div>

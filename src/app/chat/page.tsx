@@ -3,11 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { apiService } from "@/services/api";
 import { ChatMessage } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, Bot, User } from "lucide-react";
+import { Send, Loader2, Bot, User, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
@@ -74,107 +73,132 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="border-b p-4">
-        <div className="max-w-4xl mx-auto">
-          <h1 className="text-2xl font-bold tracking-tight">Chat IA</h1>
-          <p className="text-sm text-muted-foreground">
-            Consulte informações sobre clientes e análises de crédito
-          </p>
-        </div>
-      </div>
+    <div className="flex flex-col h-screen bg-background">
 
-      <ScrollArea ref={scrollRef} className="flex-1 p-4">
-        <div className="max-w-4xl mx-auto space-y-4">
-          {messages.map((message, index) => (
-            <div
-              key={index}
-              className={cn(
-                "flex gap-3",
-                message.role === "user" ? "justify-end" : "justify-start"
-              )}
-            >
-              {message.role === "assistant" && (
-                <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                  <Bot className="w-4 h-4 text-primary-foreground" />
+      {/* Messages */}
+      <ScrollArea ref={scrollRef} className="flex-1">
+        <div className="max-w-4xl mx-auto w-full px-4 py-6">
+          {messages.length === 0 ? (
+            <div className="flex items-center justify-center h-full py-16">
+              <div className="text-center space-y-4">
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 flex items-center justify-center mx-auto">
+                  <Bot className="w-8 h-8 text-primary/60" />
                 </div>
-              )}
-
-              <div
-                className={cn(
-                  "flex flex-col max-w-[80%]",
-                  message.role === "user" ? "items-end" : "items-start"
-                )}
-              >
-                <Card
+                <h2 className="text-xl font-semibold">Como posso ajudá-lo?</h2>
+                <p className="text-sm text-muted-foreground max-w-xs">
+                  Pergunte sobre clientes, scores de crédito, análises de risco ou qualquer informação financeira
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {messages.map((message, index) => (
+                <div
+                  key={index}
                   className={cn(
-                    message.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : ""
+                    "flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500",
+                    message.role === "user" ? "flex-row-reverse" : ""
                   )}
                 >
-                  <CardContent className="p-3">
-                    <p className="text-sm whitespace-pre-wrap">
-                      {message.content}
-                    </p>
-                  </CardContent>
-                </Card>
-                <span className="text-xs text-muted-foreground mt-1 px-1">
-                  {formatTime(message.timestamp)}
-                </span>
-              </div>
+                  {/* Avatar */}
+                  <div className="flex-shrink-0 mt-1">
+                    {message.role === "assistant" ? (
+                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+                        <Bot className="w-5 h-5 text-primary-foreground" />
+                      </div>
+                    ) : (
+                      <div className="w-10 h-10 rounded-xl bg-secondary flex items-center justify-center shadow-md">
+                        <User className="w-5 h-5 text-secondary-foreground" />
+                      </div>
+                    )}
+                  </div>
 
-              {message.role === "user" && (
-                <div className="w-8 h-8 rounded-lg bg-muted flex items-center justify-center flex-shrink-0">
-                  <User className="w-4 h-4" />
+                  {/* Message Bubble */}
+                  <div
+                    className={cn(
+                      "flex flex-col max-w-xl",
+                      message.role === "user" ? "items-end" : "items-start"
+                    )}
+                  >
+                    <div
+                      className={cn(
+                        "rounded-2xl px-4 py-3 shadow-sm transition-all hover:shadow-md",
+                        message.role === "user"
+                          ? "bg-primary text-primary-foreground rounded-br-none"
+                          : "bg-muted text-foreground rounded-bl-none"
+                      )}
+                    >
+                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                        {message.content}
+                      </p>
+                    </div>
+                    <span className="text-xs text-muted-foreground mt-2 px-1">
+                      {formatTime(message.timestamp)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+
+              {loading && (
+                <div className="flex gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+                  <div className="flex-shrink-0 mt-1">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center shadow-md">
+                      <Bot className="w-5 h-5 text-primary-foreground" />
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-start">
+                    <div className="bg-muted text-foreground rounded-2xl rounded-bl-none px-4 py-3 shadow-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-foreground/60 animate-bounce" style={{ animationDelay: "0ms" }} />
+                          <div className="w-2 h-2 rounded-full bg-foreground/60 animate-bounce" style={{ animationDelay: "150ms" }} />
+                          <div className="w-2 h-2 rounded-full bg-foreground/60 animate-bounce" style={{ animationDelay: "300ms" }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
-            </div>
-          ))}
 
-          {loading && (
-            <div className="flex gap-3 justify-start">
-              <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center flex-shrink-0">
-                <Bot className="w-4 h-4 text-primary-foreground" />
-              </div>
-              <Card>
-                <CardContent className="p-3">
-                  <div className="flex items-center gap-2">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <p className="text-sm text-muted-foreground">Pensando...</p>
-                  </div>
-                </CardContent>
-              </Card>
+              {/* Spacing for scroll */}
+              <div className="h-4" />
             </div>
           )}
         </div>
       </ScrollArea>
 
-      <div className="border-t p-4">
+      {/* Input Area */}
+      <div className="border-t border-border bg-background/80 backdrop-blur-sm p-4 sticky bottom-0">
         <div className="max-w-4xl mx-auto">
-          <form onSubmit={handleSubmit} className="flex gap-3">
-            <Input
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Faça uma pergunta sobre clientes ou scores de crédito..."
-              disabled={loading}
-            />
-            <Button
-              type="submit"
-              disabled={loading || !input.trim()}
-              size="icon"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
+          <form onSubmit={handleSubmit} className="space-y-3">
+            <div className="flex gap-3 items-end">
+              <div className="flex-1 relative">
+                <Input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="Digite sua pergunta..."
+                  disabled={loading}
+                  className="rounded-2xl border-2 border-primary/30 bg-primary/5 pr-12 focus:border-primary focus:ring-2 focus:ring-primary/20 focus:bg-primary/10 transition-all min-h-[48px] text-foreground placeholder:text-muted-foreground/60"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={loading || !input.trim()}
+                size="icon"
+                className="rounded-full w-10 h-10 bg-primary hover:bg-primary/90"
+              >
+                {loading ? (
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                ) : (
+                  <Send className="h-5 w-5" />
+                )}
+              </Button>
+            </div>
+            <p className="text-xs text-muted-foreground px-4">
+              Exemplos: "Quais clientes têm score acima de 800?" • "Mostre clientes inadimplentes" • "Top 5 clientes por score"
+            </p>
           </form>
-          <p className="text-xs text-muted-foreground mt-2">
-            Exemplos: &ldquo;Quais clientes têm score acima de 800?&rdquo; ou &ldquo;Mostre clientes
-            inadimplentes&rdquo;
-          </p>
         </div>
       </div>
     </div>
