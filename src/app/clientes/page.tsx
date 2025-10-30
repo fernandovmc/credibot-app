@@ -4,31 +4,27 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { apiService } from "@/services/api";
 import { Cliente } from "@/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Loader2, Search, Filter, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, Search, RotateCcw, Users, User, Building2, ArrowUp, ArrowDown } from "lucide-react";
 
 export default function ClientesPage() {
   const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [filteredClientes, setFilteredClientes] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState("");
-  const [riskFilter, setRiskFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<"nome_asc" | "nome_desc" | "score_asc" | "score_desc">("nome_asc");
+  const [scoreRange, setScoreRange] = useState<[number, number]>([0, 1000]);
+  const [typeFilter, setTypeFilter] = useState<"all" | "PF" | "PJ">("all");
   const perPage = 25;
 
   useEffect(() => {
     loadClientes(currentPage);
   }, [currentPage]);
-
-  useEffect(() => {
-    filterClientes();
-  }, [clientes, searchTerm, riskFilter, typeFilter]);
 
   const loadClientes = async (page: number) => {
     try {
@@ -44,8 +40,8 @@ export default function ClientesPage() {
     }
   };
 
-  const filterClientes = () => {
-    let filtered = [...clientes];
+  const getFilteredAndSortedClientes = () => {
+    let filtered = clientes;
 
     // Filtro de busca
     if (searchTerm) {
@@ -56,26 +52,37 @@ export default function ClientesPage() {
       );
     }
 
-    // Filtro de risco
-    if (riskFilter !== "all") {
-      filtered = filtered.filter((c) => c.classe_risco.toLowerCase() === riskFilter);
-    }
+    // Filtro de score
+    filtered = filtered.filter(
+      (c) => c.score_credito >= scoreRange[0] && c.score_credito <= scoreRange[1]
+    );
 
     // Filtro de tipo
     if (typeFilter !== "all") {
       filtered = filtered.filter((c) => c.tipo_pessoa === typeFilter);
     }
 
-    setFilteredClientes(filtered);
+    // Ordenação
+    const sorted = [...filtered];
+    switch (sortBy) {
+      case "nome_asc":
+        sorted.sort((a, b) => a.nome.localeCompare(b.nome));
+        break;
+      case "nome_desc":
+        sorted.sort((a, b) => b.nome.localeCompare(a.nome));
+        break;
+      case "score_asc":
+        sorted.sort((a, b) => a.score_credito - b.score_credito);
+        break;
+      case "score_desc":
+        sorted.sort((a, b) => b.score_credito - a.score_credito);
+        break;
+    }
+
+    return sorted;
   };
 
-  const clearFilters = () => {
-    setSearchTerm("");
-    setRiskFilter("all");
-    setTypeFilter("all");
-  };
-
-  const hasActiveFilters = searchTerm || riskFilter !== "all" || typeFilter !== "all";
+  const filteredClientes = getFilteredAndSortedClientes();
 
   const getRiskVariant = (classe: string) => {
     switch (classe.toLowerCase()) {
@@ -88,6 +95,16 @@ export default function ClientesPage() {
         return "destructive";
       default:
         return "outline";
+    }
+  };
+
+  const getScoreColor = (score: number) => {
+    if (score < 350) {
+      return { bg: "bg-red-50 dark:bg-red-950/30", border: "border-red-200 dark:border-red-800", text: "text-red-600 dark:text-red-400", bar: "#ef4444" };
+    } else if (score < 650) {
+      return { bg: "bg-amber-50 dark:bg-amber-950/30", border: "border-amber-200 dark:border-amber-800", text: "text-amber-600 dark:text-amber-400", bar: "#f59e0b" };
+    } else {
+      return { bg: "bg-green-50 dark:bg-green-950/30", border: "border-green-200 dark:border-green-800", text: "text-green-600 dark:text-green-400", bar: "#10b981" };
     }
   };
 
@@ -121,168 +138,401 @@ export default function ClientesPage() {
     );
   }
 
+  const hasActiveFilters = searchTerm || typeFilter !== "all" || scoreRange[0] !== 0 || scoreRange[1] !== 1000;
+
   return (
-    <div className="p-8">
-      <div className="max-w-7xl mx-auto space-y-6">
+    <div className="flex h-full">
+      {/* Sidebar Filters */}
+      <div className="w-80 border-r border-border bg-gradient-to-b from-background to-muted/20 p-8 overflow-y-auto space-y-8">
+        {/* Header */}
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
-          <p className="text-muted-foreground">
-            Visualize e gerencie os clientes do banco
-          </p>
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-1 h-6 bg-primary rounded-full" />
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Filtros</h2>
+          </div>
+          <p className="text-xs text-muted-foreground ml-4">Refine sua busca</p>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base flex items-center gap-2">
-              <Filter className="h-4 w-4" />
-              Filtros e Busca
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar por nome ou CPF/CNPJ..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="pl-9"
-                  />
-                </div>
-              </div>
+        {/* Search Bar */}
+        <div className="space-y-3">
+          <label className="text-sm font-bold text-foreground">Buscar Cliente</label>
+          <div className="relative z-0">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60 transition-colors pointer-events-none" />
+            <Input
+              placeholder="Nome ou CPF/CNPJ..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="z-0 pl-12 rounded-xl border-2 border-primary/20 bg-primary/5 hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:bg-primary/10 transition-all min-h-[44px] text-sm font-medium"
+            />
+          </div>
+        </div>
 
+        {/* Score Range Filter */}
+        <div className="space-y-4">
+          <div>
+            <label className="text-sm font-bold text-foreground block mb-1">Faixa de Score</label>
+            <p className="text-xs text-muted-foreground">Selecione o intervalo desejado</p>
+          </div>
+
+          <style>{`
+            .range-slider {
+              position: relative;
+              height: 8px;
+            }
+            .range-slider input[type="range"] {
+              -webkit-appearance: none;
+              appearance: none;
+              position: absolute;
+              width: 100%;
+              height: 8px;
+              border-radius: 5px;
+              outline: none;
+              background: transparent;
+              pointer-events: none;
+              z-index: 5;
+            }
+            .range-slider input[type="range"]::-webkit-slider-thumb {
+              -webkit-appearance: none;
+              appearance: none;
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              background: var(--primary, #3b82f6);
+              cursor: pointer;
+              border: 3px solid hsl(var(--background-foreground, 0 0% 100%));
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+              pointer-events: auto;
+              z-index: 5;
+            }
+            .range-slider input[type="range"]::-moz-range-thumb {
+              width: 24px;
+              height: 24px;
+              border-radius: 50%;
+              background: var(--primary, #3b82f6);
+              cursor: pointer;
+              border: 3px solid hsl(var(--background-foreground, 0 0% 100%));
+              box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+              pointer-events: auto;
+              z-index: 5;
+            }
+            .range-slider input[type="range"]::-moz-range-track {
+              background: transparent;
+              border: none;
+            }
+            .range-track {
+              position: absolute;
+              height: 8px;
+              background: hsl(var(--muted));
+              border-radius: 5px;
+              top: 0;
+              left: 0;
+              right: 0;
+              pointer-events: none;
+            }
+            .range-fill {
+              position: absolute;
+              height: 100%;
+              background: var(--primary, #3b82f6);
+              border-radius: 5px;
+              top: 0;
+              pointer-events: none;
+              box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
+            }
+          `}</style>
+
+          <div className="space-y-4 pt-2">
+            {/* Range Values Display */}
+            <div className="flex items-center justify-between gap-2">
+              <span className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold flex-1 text-center">{scoreRange[0]}</span>
+              <span className="text-xs text-muted-foreground font-semibold">até</span>
+              <span className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold flex-1 text-center">{scoreRange[1]}</span>
+            </div>
+
+            {/* Range Slider */}
+            <div className="range-slider">
+              <div className="range-track" />
+              <div
+                className="range-fill"
+                style={{
+                  left: `${(scoreRange[0] / 1000) * 100}%`,
+                  right: `${100 - (scoreRange[1] / 1000) * 100}%`,
+                }}
+              />
+              <input
+                type="range"
+                min="0"
+                max="1000"
+                value={scoreRange[0]}
+                onChange={(e) => {
+                  const newVal = Number(e.target.value);
+                  if (newVal <= scoreRange[1]) {
+                    setScoreRange([newVal, scoreRange[1]]);
+                  }
+                }}
+                style={{ zIndex: scoreRange[0] > 500 ? 5 : 3 }}
+              />
+              <input
+                type="range"
+                min="0"
+                max="1000"
+                value={scoreRange[1]}
+                onChange={(e) => {
+                  const newVal = Number(e.target.value);
+                  if (newVal >= scoreRange[0]) {
+                    setScoreRange([scoreRange[0], newVal]);
+                  }
+                }}
+                style={{ zIndex: scoreRange[1] < 500 ? 3 : 5 }}
+              />
+            </div>
+
+            {/* Range Info */}
+            <div className="text-center pt-1">
+              <p className="text-xs text-muted-foreground">
+                <span className="font-bold text-foreground">{scoreRange[1] - scoreRange[0]}</span> pontos de intervalo
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Type Filter */}
+        <div className="space-y-2">
+          <label className="text-sm font-bold text-foreground">Tipo de Pessoa</label>
+          <div className="flex gap-2">
+            {[
+              { value: "all", icon: Users, label: "Todos" },
+              { value: "PF", icon: User, label: "Pessoa Física" },
+              { value: "PJ", icon: Building2, label: "Pessoa Jurídica" },
+            ].map((option) => {
+              const IconComponent = option.icon;
+              return (
+                <button
+                  key={option.value}
+                  onClick={() => setTypeFilter(option.value as any)}
+                  className={`flex-1 p-2 rounded-lg border-2 transition-all flex items-center justify-center ${
+                    typeFilter === option.value
+                      ? "bg-primary/20 border-primary"
+                      : "border-border/50 hover:border-border"
+                  }`}
+                  title={option.label}
+                >
+                  <IconComponent className="h-5 w-5" />
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sort Filter */}
+        <div className="space-y-3">
+          <label className="text-sm font-bold text-foreground">Ordenação</label>
+          <div className="space-y-2">
+            {/* Sort By */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Ordenar por:</p>
               <div className="flex gap-2">
-                <select
-                  value={riskFilter}
-                  onChange={(e) => setRiskFilter(e.target.value)}
-                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="all">Todos os riscos</option>
-                  <option value="baixo">Baixo</option>
-                  <option value="médio">Médio</option>
-                  <option value="alto">Alto</option>
-                </select>
-
-                <select
-                  value={typeFilter}
-                  onChange={(e) => setTypeFilter(e.target.value)}
-                  className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-                >
-                  <option value="all">Todos os tipos</option>
-                  <option value="PF">Pessoa Física</option>
-                  <option value="PJ">Pessoa Jurídica</option>
-                </select>
-
-                {hasActiveFilters && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={clearFilters}
-                    title="Limpar filtros"
+                {[
+                  { value: "nome", label: "Nome", icon: "Az" },
+                  { value: "score", label: "Score", icon: "123" },
+                ].map((option) => (
+                  <button
+                    key={option.value}
+                    onClick={() => {
+                      const direction = sortBy.includes("asc") ? "asc" : "desc";
+                      setSortBy(`${option.value}_${direction}` as any);
+                    }}
+                    className={`flex-1 p-2 rounded-lg border-2 transition-all text-xs font-semibold ${
+                      sortBy.includes(option.value)
+                        ? "bg-primary/20 border-primary text-foreground"
+                        : "border-border/50 hover:border-border text-muted-foreground"
+                    }`}
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                )}
+                    {option.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {hasActiveFilters && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>{filteredClientes.length} cliente(s) encontrado(s)</span>
+            {/* Sort Direction */}
+            <div>
+              <p className="text-xs text-muted-foreground mb-2">Direção:</p>
+              <div className="flex gap-2">
+                {[
+                  { value: "asc", label: "Crescente", icon: ArrowUp },
+                  { value: "desc", label: "Decrescente", icon: ArrowDown },
+                ].map((option) => {
+                  const IconComponent = option.icon;
+                  return (
+                    <button
+                      key={option.value}
+                      onClick={() => {
+                        const field = sortBy.split("_")[0];
+                        setSortBy(`${field}_${option.value}` as any);
+                      }}
+                      className={`flex-1 p-2 rounded-lg border-2 transition-all flex items-center justify-center gap-1 ${
+                        sortBy.includes(option.value)
+                          ? "bg-primary/20 border-primary text-foreground"
+                          : "border-border/50 hover:border-border text-muted-foreground"
+                      }`}
+                      title={option.label}
+                    >
+                      <IconComponent className="h-4 w-4" />
+                      <span className="text-xs font-semibold">{option.label}</span>
+                    </button>
+                  );
+                })}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </div>
+          </div>
+        </div>
 
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClientes.map((cliente) => (
-            <Link key={cliente.id} href={`/clientes/${cliente.id}`}>
-              <Card className="hover:border-primary transition-colors cursor-pointer h-full">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="space-y-1 flex-1">
-                      <CardTitle className="text-lg line-clamp-1">
-                        {cliente.nome}
-                      </CardTitle>
-                      <p className="text-sm text-muted-foreground">
-                        {cliente.cpf_cnpj}
-                      </p>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Score</span>
-                    <span className="text-xl font-bold">
-                      {cliente.score_credito}
-                    </span>
-                  </div>
+        {/* Clear Filters */}
+        {hasActiveFilters && (
+          <Button
+            variant="outline"
+            className="w-full h-11 rounded-xl font-semibold border-2 hover:bg-primary/10 hover:border-primary transition-all"
+            onClick={() => {
+              setSearchTerm("");
+              setScoreRange([0, 1000]);
+              setTypeFilter("all");
+            }}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Limpar Filtros
+          </Button>
+        )}
+      </div>
 
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm text-muted-foreground">Risco</span>
-                    <Badge variant={getRiskVariant(cliente.classe_risco)}>
-                      {cliente.classe_risco}
-                    </Badge>
-                  </div>
+      {/* Main Content */}
+      <div className="flex-1 flex flex-col">
+        <div className="p-8 overflow-y-auto">
+          <div className="max-w-6xl mx-auto space-y-6">
+            {/* Header */}
+            <div>
+              <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
+              <p className="text-muted-foreground">
+                {filteredClientes.length} cliente{filteredClientes.length !== 1 ? "s" : ""} encontrado{filteredClientes.length !== 1 ? "s" : ""}
+              </p>
+            </div>
 
-                  <div className="flex items-center justify-between pt-2 border-t">
-                    <span className="text-sm text-muted-foreground">Tipo</span>
-                    <Badge variant="outline">
-                      {cliente.tipo_pessoa}
-                    </Badge>
-                  </div>
+            {/* Clients Grid */}
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+              {filteredClientes.map((cliente) => {
+                const scoreColor = getScoreColor(cliente.score_credito);
+                return (
+                  <Link key={cliente.id} href={`/clientes/${cliente.id}`}>
+                    <Card className="overflow-hidden hover:shadow-lg transition-all cursor-pointer h-full flex flex-col border-border/50">
+                      <CardContent className="p-5 space-y-4">
+                        {/* Header */}
+                        <div>
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1">
+                              <h3 className="text-base font-semibold line-clamp-2">
+                                {cliente.nome}
+                              </h3>
+                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                {cliente.cpf_cnpj}
+                              </p>
+                            </div>
+                            <Badge variant={getRiskVariant(cliente.classe_risco)} className="text-xs flex-shrink-0">
+                              {cliente.classe_risco}
+                            </Badge>
+                          </div>
+                        </div>
 
-                  {!cliente.ativo && (
-                    <Badge variant="destructive" className="w-full justify-center">
-                      Inativo
-                    </Badge>
-                  )}
+                        {/* Score */}
+                        <div className="flex items-baseline gap-2">
+                          <span className={`text-3xl font-bold ${scoreColor.text}`}>{cliente.score_credito}</span>
+                          <span className="text-xs text-muted-foreground">/ 1000</span>
+                        </div>
+
+                        {/* Score Progress Bar */}
+                        <div className="space-y-1.5">
+                          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                background: scoreColor.bar,
+                                width: `${Math.round((cliente.score_credito / 1000) * 100)}%`,
+                              }}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Details */}
+                        <div className="space-y-2 pt-1">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Tipo</span>
+                            <span className="font-medium">{cliente.tipo_pessoa === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</span>
+                          </div>
+
+                          {(cliente.cidade || cliente.uf) && (
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Local</span>
+                              <span className="font-medium truncate ml-2">
+                                {cliente.cidade && cliente.uf
+                                  ? `${cliente.cidade}, ${cliente.uf.slice(0, 2)}`
+                                  : cliente.cidade || cliente.uf || 'N/A'}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {!cliente.ativo && (
+                          <div className="pt-1">
+                            <Badge variant="destructive" className="text-xs w-full justify-center">
+                              Inativo
+                            </Badge>
+                          </div>
+                        )}
+                      </CardContent>
+                    </Card>
+                  </Link>
+                );
+              })}
+            </div>
+
+            {filteredClientes.length === 0 && !loading && (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">
+                    Nenhum cliente encontrado com esses filtros.
+                  </p>
                 </CardContent>
               </Card>
-            </Link>
-          ))}
-        </div>
+            )}
 
-        {filteredClientes.length === 0 && !loading && (
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">
-                Nenhum cliente encontrado com os filtros aplicados.
-              </p>
-            </CardContent>
-          </Card>
-        )}
+            {totalPages > 1 && !searchTerm && (
+              <div className="flex items-center justify-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1 || loading}
+                >
+                  <ChevronLeft className="h-4 w-4 mr-1" />
+                  Anterior
+                </Button>
 
-        {totalPages > 1 && !hasActiveFilters && (
-          <div className="flex items-center justify-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-              disabled={currentPage === 1 || loading}
-            >
-              <ChevronLeft className="h-4 w-4 mr-1" />
-              Anterior
-            </Button>
+                <div className="flex items-center gap-2 px-4">
+                  <span className="text-sm text-muted-foreground">
+                    Página {currentPage} de {totalPages}
+                  </span>
+                </div>
 
-            <div className="flex items-center gap-2 px-4">
-              <span className="text-sm text-muted-foreground">
-                Página {currentPage} de {totalPages}
-              </span>
-            </div>
-
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-              disabled={currentPage === totalPages || loading}
-            >
-              Próxima
-              <ChevronRight className="h-4 w-4 ml-1" />
-            </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages || loading}
+                >
+                  Próxima
+                  <ChevronRight className="h-4 w-4 ml-1" />
+                </Button>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

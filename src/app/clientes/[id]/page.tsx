@@ -20,13 +20,12 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
-  Legend,
+  Label,
 } from "recharts";
+import { ChartContainer, ChartTooltip, ChartTooltipContent, ChartConfig } from "@/components/ui/chart";
 
 export default function ClienteDetailPage() {
   const params = useParams();
@@ -105,7 +104,14 @@ export default function ClienteDetailPage() {
     { name: "Restante", value: 1000 - cliente.score_credito },
   ];
 
-  const COLORS = ["hsl(var(--chart-1))", "hsl(var(--muted))"];
+  const scoreChartConfig = {
+    value: {
+      label: "Score",
+      color: "var(--chart-1)",
+    },
+  } satisfies ChartConfig;
+
+  const COLORS = ["oklch(0.7227 0.1920 149.5793)", "oklch(0.9670 0.0029 264.5419)"];
 
   const scoreHistoryData = [
     { month: "Jan", score: cliente.score_credito - 50 },
@@ -218,21 +224,37 @@ export default function ClienteDetailPage() {
               <CardTitle>Evolução do Score</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={scoreHistoryData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="month" className="text-xs" />
-                  <YAxis className="text-xs" domain={[0, 1000]} />
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)",
-                    }}
+              <ChartContainer config={scoreChartConfig} className="h-[250px]">
+                <BarChart
+                  accessibilityLayer
+                  data={scoreHistoryData}
+                  margin={{
+                    left: 12,
+                    right: 12,
+                    top: 12,
+                    bottom: 0,
+                  }}
+                >
+                  <CartesianGrid vertical={false} horizontal={false} />
+                  <XAxis
+                    dataKey="month"
+                    tickLine={false}
+                    axisLine={false}
+                    tickMargin={8}
                   />
-                  <Bar dataKey="score" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                  <YAxis
+                    domain={[0, 1000]}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <ChartTooltip cursor={false} content={<ChartTooltipContent hideNameKey />} />
+                  <Bar
+                    dataKey="score"
+                    fill="var(--color-value)"
+                    radius={[8, 8, 0, 0]}
+                  />
                 </BarChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
 
@@ -241,32 +263,64 @@ export default function ClienteDetailPage() {
               <CardTitle>Distribuição do Score</CardTitle>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
+              <ChartContainer config={scoreChartConfig} className="mx-auto aspect-square max-h-[300px]">
                 <PieChart>
+                  <ChartTooltip
+                    cursor={false}
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={(value) => {
+                          const item = scoreData.find((d) => d.value === value);
+                          return item ? item.name : value;
+                        }}
+                      />
+                    }
+                  />
                   <Pie
                     data={scoreData}
                     cx="50%"
                     cy="50%"
                     innerRadius={60}
                     outerRadius={100}
-                    fill="#8884d8"
-                    paddingAngle={5}
+                    paddingAngle={2}
                     dataKey="value"
+                    strokeWidth={2}
                   >
                     {scoreData.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index]} />
                     ))}
+                    <Label
+                      content={({ viewBox }) => {
+                        if (viewBox && "cx" in viewBox && "cy" in viewBox) {
+                          return (
+                            <text
+                              x={viewBox.cx}
+                              y={viewBox.cy}
+                              textAnchor="middle"
+                              dominantBaseline="middle"
+                            >
+                              <tspan
+                                x={viewBox.cx}
+                                y={viewBox.cy}
+                                className="fill-foreground text-3xl font-bold"
+                              >
+                                {cliente.score_credito}
+                              </tspan>
+                              <tspan
+                                x={viewBox.cx}
+                                y={(viewBox.cy || 0) + 24}
+                                className="fill-muted-foreground text-sm"
+                              >
+                                Score
+                              </tspan>
+                            </text>
+                          );
+                        }
+                      }}
+                    />
                   </Pie>
-                  <Tooltip
-                    contentStyle={{
-                      backgroundColor: "hsl(var(--popover))",
-                      border: "1px solid hsl(var(--border))",
-                      borderRadius: "var(--radius)",
-                    }}
-                  />
-                  <Legend />
                 </PieChart>
-              </ResponsiveContainer>
+              </ChartContainer>
             </CardContent>
           </Card>
         </div>
