@@ -2,14 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Users, MessageSquare, LayoutDashboard } from "lucide-react";
+import { Users, MessageSquare, LayoutDashboard as DashboardIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 const routes = [
   {
     label: "Dashboard",
-    icon: LayoutDashboard,
+    icon: DashboardIcon,
     href: "/",
   },
   {
@@ -28,45 +28,47 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <div className="flex flex-col h-full border-r bg-card">
-      <div className="p-4 border-b">
-        <Link href="/" className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-            <LayoutDashboard className="w-4 h-4 text-primary-foreground" />
-          </div>
-          <span className="font-semibold text-lg">Credibot</span>
-        </Link>
-      </div>
+    <div className="flex flex-col h-full w-20 border-r border-border bg-card/50 backdrop-blur-sm">
+      {/* Navigation */}
+      <nav className="flex-1 p-3 flex flex-col gap-2">
+        {routes.map((route) => {
+          const isActive = pathname === route.href ||
+            (route.href !== "/" && pathname.startsWith(route.href));
 
-      <nav className="flex-1 p-4">
-        <div className="space-y-1">
-          {routes.map((route) => {
-            const isActive = pathname === route.href ||
-              (route.href !== "/" && pathname.startsWith(route.href));
-
-            return (
-              <Link
-                key={route.href}
-                href={route.href}
+          return (
+            <Link
+              key={route.href}
+              href={route.href}
+              className={cn(
+                "w-14 h-14 flex items-center justify-center rounded-xl transition-all duration-300 relative group",
+                isActive
+                  ? "bg-primary shadow-lg"
+                  : "hover:bg-accent/50"
+              )}
+            >
+              <route.icon
                 className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
-                  isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                  "h-5 w-5 transition-colors duration-300",
+                  isActive ? "text-primary-foreground" : "text-muted-foreground group-hover:text-foreground"
                 )}
-              >
-                <route.icon className="h-4 w-4" />
+              />
+
+              {/* Tooltip */}
+              <span className="z-50 absolute left-20 top-1/2 -translate-y-1/2 bg-foreground text-background text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
                 {route.label}
-              </Link>
-            );
-          })}
-        </div>
+              </span>
+            </Link>
+          );
+        })}
       </nav>
 
-      <div className="p-4 border-t">
-        <div className="flex items-center justify-between">
-          <span className="text-xs text-muted-foreground">Tema</span>
+      {/* Theme Toggle */}
+      <div className="p-3 border-t border-border/50 flex justify-center">
+        <div className="relative group">
           <ThemeToggle />
+          <span className="absolute left-20 top-1/2 -translate-y-1/2 bg-foreground text-background text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none shadow-lg">
+            Tema
+          </span>
         </div>
       </div>
     </div>
