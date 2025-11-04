@@ -81,3 +81,12 @@ export interface ApiError {
   message: string;
   code: number;
 }
+
+export interface ClientesFiltros {
+  search?: string;
+  score_min?: number;
+  score_max?: number;
+  classe_risco?: string;
+  tipo_pessoa?: "PF" | "PJ";
+  ativo?: boolean;
+}

@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import ReactMarkdown from "react-markdown";
 import { apiService } from "@/services/api";
 import { ChatMessage } from "@/types";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, Loader2, Bot, User, Sparkles } from "lucide-react";
+import { Send, Loader2, Bot, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ChatPage() {
@@ -128,9 +129,111 @@ export default function ChatPage() {
                           : "bg-muted text-foreground rounded-bl-none"
                       )}
                     >
-                      <p className="text-sm whitespace-pre-wrap leading-relaxed">
-                        {message.content}
-                      </p>
+                      {message.role === "assistant" ? (
+                        <div className="prose prose-sm dark:prose-invert max-w-none text-sm leading-relaxed">
+                          <ReactMarkdown
+                            components={{
+                              // Customizar componentes markdown
+                              p: ({ children }) => (
+                                <p className="mb-2 last:mb-0">{children}</p>
+                              ),
+                              ul: ({ children }) => (
+                                <ul className="list-disc list-inside mb-2 space-y-1 last:mb-0">
+                                  {children}
+                                </ul>
+                              ),
+                              ol: ({ children }) => (
+                                <ol className="list-decimal list-inside mb-2 space-y-1 last:mb-0">
+                                  {children}
+                                </ol>
+                              ),
+                              li: ({ children }) => (
+                                <li className="ml-2">{children}</li>
+                              ),
+                              code: ({ children }) => (
+                                <code className="bg-foreground/10 rounded px-1.5 py-0.5 font-mono text-xs">
+                                  {children}
+                                </code>
+                              ),
+                              pre: ({ children }) => (
+                                <pre className="bg-foreground/10 rounded p-3 overflow-x-auto mb-2 font-mono text-xs">
+                                  {children}
+                                </pre>
+                              ),
+                              h1: ({ children }) => (
+                                <h1 className="text-base font-bold mb-2 mt-2">{children}</h1>
+                              ),
+                              h2: ({ children }) => (
+                                <h2 className="text-sm font-semibold mb-2 mt-2">{children}</h2>
+                              ),
+                              h3: ({ children }) => (
+                                <h3 className="text-xs font-semibold mb-1 mt-1">{children}</h3>
+                              ),
+                              strong: ({ children }) => (
+                                <strong className="font-semibold">{children}</strong>
+                              ),
+                              em: ({ children }) => (
+                                <em className="italic">{children}</em>
+                              ),
+                              a: ({ href, children }) => (
+                                <a
+                                  href={href}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="underline hover:opacity-80 transition-opacity"
+                                >
+                                  {children}
+                                </a>
+                              ),
+                              blockquote: ({ children }) => (
+                                <blockquote className="border-l-4 border-foreground/30 pl-3 italic my-2 opacity-80">
+                                  {children}
+                                </blockquote>
+                              ),
+                              table: ({ children }) => (
+                                <div className="my-3 rounded-lg border border-foreground/20 bg-gradient-to-br from-foreground/5 to-foreground/3 overflow-hidden shadow-sm">
+                                  <div className="overflow-x-auto">
+                                    <table className="border-collapse w-full text-xs">
+                                      {children}
+                                    </table>
+                                  </div>
+                                </div>
+                              ),
+                              thead: ({ children }) => (
+                                <thead className="bg-gradient-to-r from-foreground/15 to-foreground/10 sticky top-0">
+                                  {children}
+                                </thead>
+                              ),
+                              tbody: ({ children }) => (
+                                <tbody className="divide-y divide-foreground/10">
+                                  {children}
+                                </tbody>
+                              ),
+                              tr: ({ children }) => (
+                                <tr className="hover:bg-foreground/8 transition-colors duration-150">
+                                  {children}
+                                </tr>
+                              ),
+                              th: ({ children }) => (
+                                <th className="border-r border-foreground/15 px-4 py-2.5 font-bold text-left text-foreground/90 whitespace-nowrap last:border-r-0">
+                                  {children}
+                                </th>
+                              ),
+                              td: ({ children }) => (
+                                <td className="border-r border-foreground/15 px-4 py-2 text-foreground/80 last:border-r-0">
+                                  {children}
+                                </td>
+                              ),
+                            }}
+                          >
+                            {message.content}
+                          </ReactMarkdown>
+                        </div>
+                      ) : (
+                        <p className="text-sm whitespace-pre-wrap leading-relaxed">
+                          {message.content}
+                        </p>
+                      )}
                     </div>
                     <span className="text-xs text-muted-foreground mt-2 px-1">
                       {formatTime(message.timestamp)}

@@ -5,6 +5,7 @@ import {
   ChatResponse,
   SmartChatRequest,
   SmartChatResponse,
+  ClientesFiltros,
 } from "@/types";
 
 const API_BASE_URL =
@@ -40,11 +41,27 @@ class ApiService {
     }
   }
 
-  // Listar clientes com paginação
-  async getClientes(page: number = 1, perPage: number = 25): Promise<ClientesResponse> {
-    return this.request<ClientesResponse>(
-      `/clientes?page=${page}&per_page=${perPage}`
-    );
+  // Listar clientes com paginação e filtros
+  async getClientes(
+    page: number = 1,
+    perPage: number = 25,
+    filtros?: ClientesFiltros
+  ): Promise<ClientesResponse> {
+    const params = new URLSearchParams();
+
+    // Paginação
+    params.append("page", page.toString());
+    params.append("per_page", perPage.toString());
+
+    // Filtros (adicionar apenas se preenchidos)
+    if (filtros?.search) params.append("search", filtros.search);
+    if (filtros?.score_min !== undefined) params.append("score_min", filtros.score_min.toString());
+    if (filtros?.score_max !== undefined) params.append("score_max", filtros.score_max.toString());
+    if (filtros?.classe_risco) params.append("classe_risco", filtros.classe_risco);
+    if (filtros?.tipo_pessoa) params.append("tipo_pessoa", filtros.tipo_pessoa);
+    if (filtros?.ativo !== undefined) params.append("ativo", filtros.ativo.toString());
+
+    return this.request<ClientesResponse>(`/clientes?${params.toString()}`);
   }
 
   // Buscar cliente por ID

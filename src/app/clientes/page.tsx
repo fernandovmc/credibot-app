@@ -1,97 +1,154 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import Link from "next/link";
 import { apiService } from "@/services/api";
-import { Cliente } from "@/types";
+import { Cliente, ClientesFiltros, PaginationInfo } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ChevronLeft, ChevronRight, Loader2, Search, RotateCcw, Users, User, Building2, ArrowUp, ArrowDown } from "lucide-react";
+import { Loader2, Search, RotateCcw, Users, User, Building2 } from "lucide-react";
 
-export default function ClientesPage() {
-  const [clientes, setClientes] = useState<Cliente[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [sortBy, setSortBy] = useState<"nome_asc" | "nome_desc" | "score_asc" | "score_desc">("nome_asc");
-  const [scoreRange, setScoreRange] = useState<[number, number]>([0, 1000]);
-  const [typeFilter, setTypeFilter] = useState<"all" | "PF" | "PJ">("all");
-  const perPage = 25;
+// Debounce helper
+function useDebounce<T>(value: T, delay: number) {
+  const [debouncedValue, setDebouncedValue] = useState<T>(value);
 
   useEffect(() => {
-    loadClientes(currentPage);
-  }, [currentPage]);
+    const handler = setTimeout(() => {
+      setDebouncedValue(value);
+    }, delay);
 
-  const loadClientes = async (page: number) => {
+    return () => clearTimeout(handler);
+  }, [value, delay]);
+
+  return debouncedValue;
+}
+
+export default function ClientesPage() {
+  // Estado de dados
+  const [clientes, setClientes] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Estado de paginação
+  const [paginationInfo, setPaginationInfo] = useState<PaginationInfo>({
+    page: 1,
+    per_page: 25,
+    total: 0,
+    total_pages: 0,
+  });
+
+  // Estado de filtros
+  const [searchInput, setSearchInput] = useState("");
+  const [scoreRange, setScoreRange] = useState<[number, number]>([0, 1000]);
+  const [typeFilter, setTypeFilter] = useState<"all" | "PF" | "PJ">("all");
+  const [classeRiscoFilter, setClasseRiscoFilter] = useState<string>("");
+  const [ativoFilter, setAtivoFilter] = useState<boolean | undefined>();
+
+  // Debounce search input
+  const debouncedSearch = useDebounce(searchInput, 500);
+
+  // Ref para IntersectionObserver
+  const observerTarget = useRef<HTMLDivElement>(null);
+  const perPage = 25;
+
+  // Filtros que serão enviados à API
+  const filtros = useMemo<ClientesFiltros>(() => {
+    return {
+      search: debouncedSearch,
+      score_min: scoreRange[0] !== 0 ? scoreRange[0] : undefined,
+      score_max: scoreRange[1] !== 1000 ? scoreRange[1] : undefined,
+      classe_risco: classeRiscoFilter || undefined,
+      tipo_pessoa: typeFilter !== "all" ? typeFilter : undefined,
+      ativo: ativoFilter,
+    };
+  }, [debouncedSearch, scoreRange, classeRiscoFilter, typeFilter, ativoFilter]);
+
+  // 1️⃣ Resetar lista quando filtros mudam
+  useEffect(() => {
+    setClientes([]);
+    setPaginationInfo({
+      page: 1,
+      per_page: 25,
+      total: 0,
+      total_pages: 0,
+    });
+  }, [filtros]);
+
+  // 2️⃣ Carregar próxima página
+  const carregarProxima = useCallback(async () => {
+    if (loading || paginationInfo.page >= paginationInfo.total_pages) {
+      return;
+    }
+
     try {
-      setLoading(true);
       setError(null);
-      const response = await apiService.getClientes(page, perPage);
-      setClientes(response.data);
-      setTotalPages(response.pagination.total_pages);
+      setLoading(true);
+
+      const nextPage = paginationInfo.page + 1;
+      const response = await apiService.getClientes(nextPage, perPage, filtros);
+
+      setClientes((prev) => [...prev, ...response.data]);
+      setPaginationInfo(response.pagination);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao carregar clientes");
     } finally {
       setLoading(false);
     }
-  };
+  }, [loading, paginationInfo.page, paginationInfo.total_pages, perPage, filtros]);
 
-  const getFilteredAndSortedClientes = () => {
-    let filtered = clientes;
+  // 3️⃣ Carregar primeira página (quando filtros mudam)
+  useEffect(() => {
+    const carregarPrimeira = async () => {
+      try {
+        setError(null);
+        setInitialLoading(true);
 
-    // Filtro de busca
-    if (searchTerm) {
-      filtered = filtered.filter(
-        (c) =>
-          c.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          c.cpf_cnpj.includes(searchTerm)
-      );
-    }
+        const response = await apiService.getClientes(1, perPage, filtros);
+        setClientes(response.data);
+        setPaginationInfo(response.pagination);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Erro ao carregar clientes");
+      } finally {
+        setInitialLoading(false);
+      }
+    };
 
-    // Filtro de score
-    filtered = filtered.filter(
-      (c) => c.score_credito >= scoreRange[0] && c.score_credito <= scoreRange[1]
+    carregarPrimeira();
+  }, [filtros, perPage]);
+
+  // 4️⃣ Intersection Observer para infinite scroll
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && !loading && paginationInfo.page < paginationInfo.total_pages) {
+          carregarProxima();
+        }
+      },
+      { threshold: 0.1 }
     );
 
-    // Filtro de tipo
-    if (typeFilter !== "all") {
-      filtered = filtered.filter((c) => c.tipo_pessoa === typeFilter);
+    if (observerTarget.current) {
+      observer.observe(observerTarget.current);
     }
 
-    // Ordenação
-    const sorted = [...filtered];
-    switch (sortBy) {
-      case "nome_asc":
-        sorted.sort((a, b) => a.nome.localeCompare(b.nome));
-        break;
-      case "nome_desc":
-        sorted.sort((a, b) => b.nome.localeCompare(a.nome));
-        break;
-      case "score_asc":
-        sorted.sort((a, b) => a.score_credito - b.score_credito);
-        break;
-      case "score_desc":
-        sorted.sort((a, b) => b.score_credito - a.score_credito);
-        break;
-    }
+    return () => observer.disconnect();
+  }, [carregarProxima, loading, paginationInfo.page, paginationInfo.total_pages]);
 
-    return sorted;
-  };
-
-  const filteredClientes = getFilteredAndSortedClientes();
-
+  // Helpers para estilo
   const getRiskVariant = (classe: string) => {
     switch (classe.toLowerCase()) {
       case "baixo":
+      case "a":
         return "default";
       case "médio":
       case "medio":
+      case "b":
         return "secondary";
       case "alto":
+      case "c":
         return "destructive";
       default:
         return "outline";
@@ -103,24 +160,33 @@ export default function ClientesPage() {
       return {
         text: "text-[--score-low]",
         bar: "var(--score-low)",
-        cssVar: "--score-low"
+        cssVar: "--score-low",
       };
     } else if (score < 650) {
       return {
         text: "text-[--score-medium]",
         bar: "var(--score-medium)",
-        cssVar: "--score-medium"
+        cssVar: "--score-medium",
       };
     } else {
       return {
         text: "text-[--score-high]",
         bar: "var(--score-high)",
-        cssVar: "--score-high"
+        cssVar: "--score-high",
       };
     }
   };
 
-  if (loading && clientes.length === 0) {
+  const hasActiveFilters =
+    searchInput ||
+    typeFilter !== "all" ||
+    scoreRange[0] !== 0 ||
+    scoreRange[1] !== 1000 ||
+    classeRiscoFilter ||
+    ativoFilter !== undefined;
+
+  // Loading state
+  if (initialLoading) {
     return (
       <div className="flex items-center justify-center h-full">
         <div className="flex flex-col items-center gap-2">
@@ -131,27 +197,6 @@ export default function ClientesPage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-full p-8">
-        <Card className="max-w-md w-full">
-          <CardContent className="pt-6">
-            <p className="text-destructive text-center mb-4">{error}</p>
-            <Button
-              onClick={() => loadClientes(currentPage)}
-              className="w-full"
-              variant="outline"
-            >
-              Tentar novamente
-            </Button>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
-
-  const hasActiveFilters = searchTerm || typeFilter !== "all" || scoreRange[0] !== 0 || scoreRange[1] !== 1000;
-
   return (
     <div className="flex h-full">
       {/* Sidebar Filters */}
@@ -160,7 +205,9 @@ export default function ClientesPage() {
         <div>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-1 h-6 bg-primary rounded-full" />
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">Filtros</h2>
+            <h2 className="text-2xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              Filtros
+            </h2>
           </div>
           <p className="text-xs text-muted-foreground ml-4">Refine sua busca</p>
         </div>
@@ -172,8 +219,8 @@ export default function ClientesPage() {
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-primary/60 transition-colors pointer-events-none" />
             <Input
               placeholder="Nome ou CPF/CNPJ..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
               className="z-0 pl-12 rounded-xl border-2 border-primary/20 bg-primary/5 hover:border-primary/40 focus:border-primary focus:ring-2 focus:ring-primary/30 focus:bg-primary/10 transition-all min-h-[44px] text-sm font-medium"
             />
           </div>
@@ -255,9 +302,13 @@ export default function ClientesPage() {
           <div className="space-y-4 pt-2">
             {/* Range Values Display */}
             <div className="flex items-center justify-between gap-2">
-              <span className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold flex-1 text-center">{scoreRange[0]}</span>
+              <span className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold flex-1 text-center">
+                {scoreRange[0]}
+              </span>
               <span className="text-xs text-muted-foreground font-semibold">até</span>
-              <span className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold flex-1 text-center">{scoreRange[1]}</span>
+              <span className="bg-primary text-primary-foreground px-3 py-1.5 rounded-lg text-sm font-bold flex-1 text-center">
+                {scoreRange[1]}
+              </span>
             </div>
 
             {/* Range Slider */}
@@ -322,9 +373,7 @@ export default function ClientesPage() {
                   key={option.value}
                   onClick={() => setTypeFilter(option.value as any)}
                   className={`flex-1 p-2 rounded-lg border-2 transition-all flex items-center justify-center ${
-                    typeFilter === option.value
-                      ? "bg-primary/20 border-primary"
-                      : "border-border/50 hover:border-border"
+                    typeFilter === option.value ? "bg-primary/20 border-primary" : "border-border/50 hover:border-border"
                   }`}
                   title={option.label}
                 >
@@ -335,78 +384,17 @@ export default function ClientesPage() {
           </div>
         </div>
 
-        {/* Sort Filter */}
-        <div className="space-y-3">
-          <label className="text-sm font-bold text-foreground">Ordenação</label>
-          <div className="space-y-2">
-            {/* Sort By */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Ordenar por:</p>
-              <div className="flex gap-2">
-                {[
-                  { value: "nome", label: "Nome", icon: "Az" },
-                  { value: "score", label: "Score", icon: "123" },
-                ].map((option) => (
-                  <button
-                    key={option.value}
-                    onClick={() => {
-                      const direction = sortBy.includes("asc") ? "asc" : "desc";
-                      setSortBy(`${option.value}_${direction}` as any);
-                    }}
-                    className={`flex-1 p-2 rounded-lg border-2 transition-all text-xs font-semibold ${
-                      sortBy.includes(option.value)
-                        ? "bg-primary/20 border-primary text-foreground"
-                        : "border-border/50 hover:border-border text-muted-foreground"
-                    }`}
-                  >
-                    {option.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Sort Direction */}
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Direção:</p>
-              <div className="flex gap-2">
-                {[
-                  { value: "asc", label: "Crescente", icon: ArrowUp },
-                  { value: "desc", label: "Decrescente", icon: ArrowDown },
-                ].map((option) => {
-                  const IconComponent = option.icon;
-                  return (
-                    <button
-                      key={option.value}
-                      onClick={() => {
-                        const field = sortBy.split("_")[0];
-                        setSortBy(`${field}_${option.value}` as any);
-                      }}
-                      className={`flex-1 p-2 rounded-lg border-2 transition-all flex items-center justify-center gap-1 ${
-                        sortBy.includes(option.value)
-                          ? "bg-primary/20 border-primary text-foreground"
-                          : "border-border/50 hover:border-border text-muted-foreground"
-                      }`}
-                      title={option.label}
-                    >
-                      <IconComponent className="h-4 w-4" />
-                      <span className="text-xs font-semibold">{option.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* Clear Filters */}
         {hasActiveFilters && (
           <Button
             variant="outline"
             className="w-full h-11 rounded-xl font-semibold border-2 hover:bg-primary/10 hover:border-primary transition-all"
             onClick={() => {
-              setSearchTerm("");
+              setSearchInput("");
               setScoreRange([0, 1000]);
               setTypeFilter("all");
+              setClasseRiscoFilter("");
+              setAtivoFilter(undefined);
             }}
           >
             <RotateCcw className="h-4 w-4 mr-2" />
@@ -423,127 +411,132 @@ export default function ClientesPage() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Clientes</h1>
               <p className="text-muted-foreground">
-                {filteredClientes.length} cliente{filteredClientes.length !== 1 ? "s" : ""} encontrado{filteredClientes.length !== 1 ? "s" : ""}
+                {clientes.length} de {paginationInfo.total} cliente{paginationInfo.total !== 1 ? "s" : ""} carregado
+                {clientes.length !== 1 ? "s" : ""}
               </p>
             </div>
 
-            {/* Clients Grid */}
-            <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
-              {filteredClientes.map((cliente) => {
-                const scoreColor = getScoreColor(cliente.score_credito);
-                return (
-                  <Link key={cliente.id} href={`/clientes/${cliente.id}`}>
-                    <Card className="overflow-hidden hover:shadow-lg transition-all cursor-pointer h-full flex flex-col border-border/50">
-                      <CardContent className="p-5 space-y-4">
-                        {/* Header */}
-                        <div>
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1">
-                              <h3 className="text-base font-semibold line-clamp-2">
-                                {cliente.nome}
-                              </h3>
-                              <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                                {cliente.cpf_cnpj}
-                              </p>
-                            </div>
-                            <Badge variant={getRiskVariant(cliente.classe_risco)} className="text-xs flex-shrink-0">
-                              {cliente.classe_risco}
-                            </Badge>
-                          </div>
-                        </div>
-
-                        {/* Score */}
-                        <div className="flex items-baseline gap-2">
-                          <span className={`text-3xl font-bold ${scoreColor.text}`} style={{ color: scoreColor.bar }}>
-                            {cliente.score_credito}
-                          </span>
-                          <span className="text-xs text-muted-foreground">/ 1000</span>
-                        </div>
-
-                        {/* Score Progress Bar */}
-                        <div className="space-y-1.5">
-                          <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                background: scoreColor.bar,
-                                width: `${Math.round((cliente.score_credito / 1000) * 100)}%`,
-                              }}
-                            />
-                          </div>
-                        </div>
-
-                        {/* Details */}
-                        <div className="space-y-2 pt-1">
-                          <div className="flex items-center justify-between text-xs">
-                            <span className="text-muted-foreground">Tipo</span>
-                            <span className="font-medium">{cliente.tipo_pessoa === 'PF' ? 'Pessoa Física' : 'Pessoa Jurídica'}</span>
-                          </div>
-
-                          {(cliente.cidade || cliente.uf) && (
-                            <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">Local</span>
-                              <span className="font-medium truncate ml-2">
-                                {cliente.cidade && cliente.uf
-                                  ? `${cliente.cidade}, ${cliente.uf.slice(0, 2)}`
-                                  : cliente.cidade || cliente.uf || 'N/A'}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-
-                        {!cliente.ativo && (
-                          <div className="pt-1">
-                            <Badge variant="destructive" className="text-xs w-full justify-center">
-                              Inativo
-                            </Badge>
-                          </div>
-                        )}
-                      </CardContent>
-                    </Card>
-                  </Link>
-                );
-              })}
-            </div>
-
-            {filteredClientes.length === 0 && !loading && (
-              <Card>
-                <CardContent className="py-12 text-center">
-                  <p className="text-muted-foreground">
-                    Nenhum cliente encontrado com esses filtros.
-                  </p>
+            {/* Error Message */}
+            {error && (
+              <Card className="bg-destructive/10 border-destructive/50">
+                <CardContent className="pt-6">
+                  <p className="text-destructive text-center">{error}</p>
                 </CardContent>
               </Card>
             )}
 
-            {totalPages > 1 && !searchTerm && (
-              <div className="flex items-center justify-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                  disabled={currentPage === 1 || loading}
-                >
-                  <ChevronLeft className="h-4 w-4 mr-1" />
-                  Anterior
-                </Button>
+            {/* Clients Grid */}
+            {clientes.length > 0 ? (
+              <>
+                <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+                  {clientes.map((cliente) => {
+                    const scoreColor = getScoreColor(cliente.score_credito);
+                    return (
+                      <Link key={cliente.id} href={`/clientes/${cliente.id}`}>
+                        <Card className="overflow-hidden hover:shadow-lg transition-all cursor-pointer h-full flex flex-col border-border/50">
+                          <CardContent className="p-5 space-y-4">
+                            {/* Header */}
+                            <div>
+                              <div className="flex items-start justify-between gap-2 mb-2">
+                                <div className="flex-1">
+                                  <h3 className="text-base font-semibold line-clamp-2">{cliente.nome}</h3>
+                                  <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
+                                    {cliente.cpf_cnpj}
+                                  </p>
+                                </div>
+                                <Badge variant={getRiskVariant(cliente.classe_risco)} className="text-xs flex-shrink-0">
+                                  {cliente.classe_risco}
+                                </Badge>
+                              </div>
+                            </div>
 
-                <div className="flex items-center gap-2 px-4">
-                  <span className="text-sm text-muted-foreground">
-                    Página {currentPage} de {totalPages}
-                  </span>
+                            {/* Score */}
+                            <div className="flex items-baseline gap-2">
+                              <span
+                                className={`text-3xl font-bold ${scoreColor.text}`}
+                                style={{ color: scoreColor.bar }}
+                              >
+                                {cliente.score_credito}
+                              </span>
+                              <span className="text-xs text-muted-foreground">/ 1000</span>
+                            </div>
+
+                            {/* Score Progress Bar */}
+                            <div className="space-y-1.5">
+                              <div className="w-full h-2.5 bg-muted rounded-full overflow-hidden">
+                                <div
+                                  className="h-full rounded-full transition-all"
+                                  style={{
+                                    background: scoreColor.bar,
+                                    width: `${Math.round((cliente.score_credito / 1000) * 100)}%`,
+                                  }}
+                                />
+                              </div>
+                            </div>
+
+                            {/* Details */}
+                            <div className="space-y-2 pt-1">
+                              <div className="flex items-center justify-between text-xs">
+                                <span className="text-muted-foreground">Tipo</span>
+                                <span className="font-medium">
+                                  {cliente.tipo_pessoa === "PF" ? "Pessoa Física" : "Pessoa Jurídica"}
+                                </span>
+                              </div>
+
+                              {(cliente.cidade || cliente.uf) && (
+                                <div className="flex items-center justify-between text-xs">
+                                  <span className="text-muted-foreground">Local</span>
+                                  <span className="font-medium truncate ml-2">
+                                    {cliente.cidade && cliente.uf
+                                      ? `${cliente.cidade}, ${cliente.uf.slice(0, 2)}`
+                                      : cliente.cidade || cliente.uf || "N/A"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            {!cliente.ativo && (
+                              <div className="pt-1">
+                                <Badge variant="destructive" className="text-xs w-full justify-center">
+                                  Inativo
+                                </Badge>
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
+                      </Link>
+                    );
+                  })}
                 </div>
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages || loading}
-                >
-                  Próxima
-                  <ChevronRight className="h-4 w-4 ml-1" />
-                </Button>
-              </div>
+                {/* Sentinel for Infinite Scroll */}
+                <div ref={observerTarget} style={{ height: "1px" }} />
+
+                {/* Loading indicator */}
+                {loading && (
+                  <div className="flex items-center justify-center py-8">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      <p className="text-sm text-muted-foreground">Carregando mais clientes...</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* End message */}
+                {!loading && paginationInfo.page >= paginationInfo.total_pages && clientes.length > 0 && (
+                  <div className="text-center py-8">
+                    <p className="text-sm text-muted-foreground">
+                      Fim da lista ({clientes.length} clientes)
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : (
+              <Card>
+                <CardContent className="py-12 text-center">
+                  <p className="text-muted-foreground">Nenhum cliente encontrado com esses filtros.</p>
+                </CardContent>
+              </Card>
             )}
           </div>
         </div>
